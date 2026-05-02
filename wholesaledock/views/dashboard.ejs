@@ -1,0 +1,117 @@
+<%- include('partials/header') %>
+<div class="container-fluid">
+  <div class="page-title">Dashboard</div>
+  <div class="page-subtitle">Welcome back, <%= user.name %></div>
+
+  <div class="row g-3">
+    <!-- Total SKUs -->
+    <div class="col-6 col-md-4 col-xl-2">
+      <a href="/products" class="stat-card text-decoration-none">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="stat-value"><%= totalSKUs %></div>
+            <div class="stat-label">Total SKUs</div>
+          </div>
+          <div class="stat-icon" style="background:#e8f0fe;color:#1a3c5e;">
+            <i class="bi bi-box"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <% if (user.role !== 'agent') { %>
+    <!-- Open RFQs -->
+    <div class="col-6 col-md-4 col-xl-2">
+      <a href="/orders?tab=1" class="stat-card text-decoration-none">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="stat-value text-warning"><%= rfqCount %></div>
+            <div class="stat-label">Open RFQs</div>
+          </div>
+          <div class="stat-icon" style="background:#fef3c7;color:#92400e;">
+            <i class="bi bi-question-circle"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+    <% } %>
+
+    <!-- Items to Order -->
+    <div class="col-6 col-md-4 col-xl-2">
+      <a href="/orders?tab=2" class="stat-card text-decoration-none">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="stat-value" style="color:#1e40af;"><%= toOrderCount %></div>
+            <div class="stat-label">Items to Order</div>
+          </div>
+          <div class="stat-icon" style="background:#dbeafe;color:#1e40af;">
+            <i class="bi bi-cart-plus"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Items to Receive -->
+    <div class="col-6 col-md-4 col-xl-2">
+      <a href="/orders?tab=3" class="stat-card text-decoration-none">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="stat-value" style="color:#3730a3;"><%= orderedCount %></div>
+            <div class="stat-label">Items to Receive</div>
+          </div>
+          <div class="stat-icon" style="background:#e0e7ff;color:#3730a3;">
+            <i class="bi bi-truck"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Items to Load -->
+    <div class="col-6 col-md-4 col-xl-2">
+      <a href="/orders?tab=4" class="stat-card text-decoration-none">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="stat-value" style="color:#065f46;"><%= recdChinaCount %></div>
+            <div class="stat-label">Items to Load</div>
+          </div>
+          <div class="stat-icon" style="background:#d1fae5;color:#065f46;">
+            <i class="bi bi-box-arrow-in-down"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Shipments in Transit -->
+    <div class="col-6 col-md-4 col-xl-2">
+      <a href="/orders?tab=5" class="stat-card text-decoration-none">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="stat-value" style="color:#9d174d;"><%= loadedCount %></div>
+            <div class="stat-label">Shipments in Transit</div>
+          </div>
+          <div class="stat-icon" style="background:#fce7f3;color:#9d174d;">
+            <i class="bi bi-ship"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Quick links -->
+  <div class="row g-3 mt-2">
+    <div class="col-12">
+      <div class="form-card p-3">
+        <h6 class="fw-bold text-muted mb-3">Quick Actions</h6>
+        <div class="d-flex flex-wrap gap-2">
+          <a href="/products" class="btn btn-outline-primary btn-sm"><i class="bi bi-box me-1"></i>Browse Products</a>
+          <a href="/orders" class="btn btn-outline-primary btn-sm"><i class="bi bi-cart3 me-1"></i>View Orders</a>
+          <% if (user.role !== 'sales') { %>
+          <a href="/vendors" class="btn btn-outline-secondary btn-sm"><i class="bi bi-building me-1"></i>Vendors</a>
+          <a href="/products/create" class="btn btn-primary btn-sm"><i class="bi bi-plus me-1"></i>Add Product</a>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('partials/footer') %>

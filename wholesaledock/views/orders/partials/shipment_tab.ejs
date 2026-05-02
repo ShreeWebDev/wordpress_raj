@@ -1,0 +1,143 @@
+<%
+const isSales = user.role === 'sales';
+const isAdmin = user.role === 'admin';
+const isLoaded = tabStatus === 'loaded';
+%>
+<div class="table-container">
+  <table class="table data-table table-hover mb-0">
+    <thead><tr>
+      <th>Container No.</th>
+      <th>ETD</th>
+      <th>ETA</th>
+      <th>SKUs</th>
+      <th>Agent</th>
+      <% if (!isSales) { %>
+      <th>Total Weight</th>
+      <th>Total CBM</th>
+      <% } %>
+      <% if (isAdmin) { %>
+      <th>Transfer Rate</th>
+      <th>CBM Rate</th>
+      <% } %>
+      <th>Actions</th>
+    </tr></thead>
+    <tbody>
+      <% if (!shipments.length) { %><tr><td colspan="11" class="text-center text-muted py-4">No shipments.</td></tr><% } %>
+      <% shipments.forEach(s => {
+        const totalWeight = (s.items||[]).reduce((sum,i) => sum + parseFloat(i.total_weight||0), 0);
+        const totalCbm = (s.items||[]).reduce((sum,i) => sum + parseFloat(i.total_cbm||0), 0);
+      %>
+      <tr id="shipment-row-<%= s.id %>">
+        <td class="fw-bold"><%= s.container_no %></td>
+        <td><%= s.etd || '—' %></td>
+        <td><%= s.eta || '—' %></td>
+        <td><span class="badge bg-primary"><%= s.items?.length || 0 %></span></td>
+        <td><%= s.agent?.name || '—' %></td>
+        <% if (!isSales) { %>
+        <td><%= totalWeight.toFixed(2) %> kg</td>
+        <td><%= totalCbm.toFixed(4) %></td>
+        <% } %>
+        <% if (isAdmin) { %>
+        <td>
+          <div class="d-flex gap-1 align-items-center">
+            <input type="number" class="form-control form-control-sm" style="width:85px;" step="0.0001" value="<%= s.transfer_rate || '' %>" placeholder="Rate" id="tr-<%= s.id %>">
+            <button class="btn btn-outline-primary btn-sm" onclick="saveRates(<%= s.id %>)"><i class="bi bi-check"></i></button>
+          </div>
+        </td>
+        <td>
+          <input type="number" class="form-control form-control-sm" style="width:85px;" step="0.0001" value="<%= s.cbm_rate || '' %>" placeholder="Rate" id="cr-<%= s.id %>">
+        </td>
+        <% } %>
+        <td>
+          <div class="d-flex gap-1 flex-wrap">
+            <button class="btn btn-outline-primary btn-sm" onclick="viewShipment(<%= s.id %>)"><i class="bi bi-eye"></i> View</button>
+            <a href="/orders/shipments/<%= s.id %>/export" class="btn btn-outline-success btn-sm"><i class="bi bi-file-earmark-excel"></i> Export</a>
+            <% if (isAdmin && isLoaded) { %>
+            <button class="btn btn-outline-dark btn-sm" onclick="closeShipment(<%= s.id %>)"><i class="bi bi-lock"></i> Close</button>
+            <% } %>
+          </div>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<!-- View Shipment Modal -->
+<div class="modal fade" id="viewShipmentModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="shipmentModalTitle">Shipment Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="shipmentModalBody">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function saveRates(id) {
+  const tr = document.getElementById(`tr-${id}`)?.value;
+  const cr = document.getElementById(`cr-${id}`)?.value;
+  const res = await apiCall(`/orders/shipments/${id}/rates`, 'PUT', { transfer_rate: tr, cbm_rate: cr });
+  if (res.success) showToast('Rates saved!');
+  else showToast(res.message, 'error');
+}
+
+async function closeShipment(id) {
+  if (!confirm('Close this shipment? This cannot be undone.')) return;
+  const res = await apiCall(`/orders/shipments/${id}/close`, 'POST');
+  if (res.success) { showToast('Shipment closed!'); setTimeout(() => window.location.href = '?tab=6', 800); }
+  else showToast(res.message, 'error');
+}
+
+async function viewShipment(id) {
+  const modal = new bootstrap.Modal(document.getElementById('viewShipmentModal'));
+  document.getElementById('shipmentModalBody').innerHTML = '<div class="text-center py-4"><div class="spinner-border"></div></div>';
+  modal.show();
+  try {
+    const res = await fetch(`/orders/shipments/${id}/detail`);
+    const d = await res.json();
+    if (!d.success) throw new Error('Failed');
+    const s = d.shipment;
+    document.getElementById('shipmentModalTitle').textContent = `Container: ${s.container_no}`;
+    const isSales = <%- isSales ? 'true' : 'false' %>;
+    const isAdmin = <%- isAdmin ? 'true' : 'false' %>;
+    let html = `
+      <div class="row g-3 mb-3">
+        <div class="col"><strong>Container:</strong> ${s.container_no}</div>
+        <div class="col"><strong>ETD:</strong> ${s.etd || '—'}</div>
+        <div class="col"><strong>ETA:</strong> ${s.eta || '—'}</div>
+        <div class="col"><strong>Agent:</strong> ${s.agent?.name || '—'}</div>
+      </div>
+      <div class="table-container">
+      <table class="table table-sm data-table">
+        <thead><tr>
+          <th>SKU</th><th>Image</th><th>Product</th><th>No. Ctns</th><th>Ctn Qty</th><th>Total Qty</th>
+          ${!isSales ? '<th>Rate ¥</th><th>Ctn CBM</th><th>Total CBM</th><th>Ctn Wt</th><th>Total Wt</th>' : ''}
+          ${isAdmin ? '<th>Cost INR</th>' : ''}
+        </tr></thead>
+        <tbody>`;
+    (s.items||[]).forEach(item => {
+      const det = item.order?.detail || {};
+      const totalCbm = parseFloat(item.total_cbm||0);
+      const totalQty = parseInt(item.total_qty||1) || 1;
+      const rateRmb = parseFloat(det.rate_rmb||0);
+      const tr2 = parseFloat(s.transfer_rate||0);
+      const cbmR = parseFloat(s.cbm_rate||0);
+      const costInr = ((rateRmb * tr2) + (totalCbm * cbmR / totalQty)).toFixed(2);
+      const img = item.order?.product?.image_path ? `<img src="${item.order.product.image_path}" class="img-thumb">` : '<div class="img-thumb d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted"></i></div>';
+      html += `<tr>
+        <td><span class="sku-badge">${item.order?.product?.sku||''}</span></td>
+        <td>${img}</td>
+        <td>${item.order?.product?.name||''}</td>
+        <td>${item.no_of_ctns||'—'}</td>
+        <td>${det.ctn_qty||'—'}</td>
+        <td>${item.total_qty||'—'}</td>
+        ${!isSales ? `<td>¥${det.rate_rmb||'—'}</td><td>${det.ctn_cbm||'—'}</td><td>${item.total_cbm||'—'}</td><td>${det.ctn_weight||'—'}</td><td>${item.total_weight||'—'}</td>` : ''}
+        ${isAdmin ? `<td>₹${costInr}</td>` : ''}
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('shipmentModalBody').innerHTML = html;
+  } catch { document.getElementById('shipmentModalBody').innerHTML = '<div class="alert alert-danger">Failed to load shipment details.</div>'; }
+}
+</script>

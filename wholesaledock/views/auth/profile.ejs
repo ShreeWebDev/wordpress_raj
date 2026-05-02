@@ -1,0 +1,39 @@
+<%- include('../partials/header') %>
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-6 col-lg-5">
+      <div class="page-title mt-2">Edit Profile</div>
+      <div class="form-card">
+        <% if (error) { %>
+        <div class="alert alert-danger py-2"><%= error %></div>
+        <% } %>
+        <% if (success) { %>
+        <div class="alert alert-success py-2"><%= success %></div>
+        <% } %>
+        <form action="/auth/profile" method="POST">
+          <div class="mb-3">
+            <label class="form-label">Full Name</label>
+            <input type="text" name="name" class="form-control" value="<%= user.name %>" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" class="form-control" value="<%= user.contact_no %>" disabled>
+            <small class="text-muted">Username cannot be changed.</small>
+          </div>
+          <hr>
+          <p class="fw-semibold text-muted small mb-2">Change Password (leave blank to keep current)</p>
+          <div class="mb-3">
+            <label class="form-label">Current Password</label>
+            <input type="password" name="current_password" class="form-control" autocomplete="current-password">
+          </div>
+          <div class="mb-4">
+            <label class="form-label">New Password</label>
+            <input type="password" name="new_password" class="form-control" autocomplete="new-password">
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Save Changes</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/footer') %>

@@ -1,0 +1,275 @@
+<%- include('../partials/header') %>
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <a href="/products" class="text-muted small text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Back to Products</a>
+      <div class="page-title mt-1"><%= product.name %></div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="btn btn-warning btn-sm fw-bold" onclick="createRfq(<%= product.id %>, '<%= product.name.replace(/'/g, "\\'") %>', '<%= product.sku %>')">
+        <i class="bi bi-question-circle me-1"></i>Create RFQ
+      </button>
+      <a href="/products/<%= product.id %>/label" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-download me-1"></i>Box Label
+      </a>
+      <% if (user.role !== 'sales') { %>
+      <a href="/products/<%= product.id %>/edit" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-pencil me-1"></i>Edit
+      </a>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <!-- Left: Product info -->
+    <div class="col-12 col-md-4 col-lg-3">
+      <div class="form-card text-center">
+        <% if (product.image_path) { %>
+        <img src="<%= product.image_path %>" class="img-fluid rounded mb-3" style="max-height:220px;object-fit:cover;" alt="">
+        <% } else { %>
+        <div class="d-flex align-items-center justify-content-center bg-light rounded mb-3" style="height:180px;">
+          <i class="bi bi-image text-muted" style="font-size:48px;"></i>
+        </div>
+        <% } %>
+        <span class="sku-badge fs-6 d-inline-block mb-2"><%= product.sku %></span>
+        <h5 class="fw-bold"><%= product.name %></h5>
+        <span class="badge <%= product.is_active ? 'bg-success' : 'bg-secondary' %>">
+          <%= product.is_active ? 'Active' : 'Inactive' %>
+        </span>
+      </div>
+    </div>
+
+    <!-- Right: Vendor table (hidden from sales) -->
+    <% if (user.role !== 'sales') { %>
+    <div class="col-12 col-md-8 col-lg-9">
+      <div class="form-card">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h6 class="fw-bold mb-0">Vendor Pricing</h6>
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addVendorModal">
+            <i class="bi bi-plus me-1"></i>Add Vendor
+          </button>
+        </div>
+        <div class="table-container">
+          <table class="table table-sm data-table mb-0">
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th>Contact</th>
+                <th>Product Link</th>
+                <th>Rate (¥)</th>
+                <th>LxBxH (cm)</th>
+                <th>CBM</th>
+                <th>Ctn Qty</th>
+                <th>Weight (kg)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="vendorTableBody">
+              <% if (!product.productVendors || product.productVendors.length === 0) { %>
+              <tr><td colspan="9" class="text-center text-muted py-3">No vendors linked yet.</td></tr>
+              <% } %>
+              <% (product.productVendors || []).forEach(pv => { %>
+              <tr data-pvid="<%= pv.id %>">
+                <td class="fw-semibold"><%= pv.vendor?.name || '—' %></td>
+                <td><%= pv.vendor?.contact_no || '—' %></td>
+                <td>
+                  <% if (pv.product_link) { %>
+                  <a href="<%= pv.product_link %>" target="_blank" class="text-primary" title="<%= pv.product_link %>">
+                    <i class="bi bi-link-45deg"></i> Link
+                  </a>
+                  <% } else { %>—<% } %>
+                </td>
+                <td>¥<%= pv.rate_rmb ? parseFloat(pv.rate_rmb).toFixed(2) : '—' %></td>
+                <td><%= pv.ctn_l || '—' %>×<%= pv.ctn_b || '—' %>×<%= pv.ctn_h || '—' %></td>
+                <td><%= pv.ctn_cbm ? parseFloat(pv.ctn_cbm).toFixed(4) : '—' %></td>
+                <td><%= pv.ctn_qty || '—' %></td>
+                <td><%= pv.ctn_weight || '—' %></td>
+                <td>
+                  <button class="btn btn-outline-danger btn-sm" onclick="removeVendor(<%= pv.id %>)">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Add Vendor Modal -->
+<div class="modal fade" id="addVendorModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-building me-2"></i>Link Vendor to Product</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Vendor Selection -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Select Existing Vendor</label>
+          <select class="form-select" id="vendorSelect">
+            <option value="">-- Select vendor --</option>
+          </select>
+        </div>
+        <div class="text-center text-muted small mb-3">— or —</div>
+        <div id="newVendorFields" class="border rounded p-3 mb-3 bg-light">
+          <p class="fw-semibold small mb-2">Create New Vendor</p>
+          <div class="row g-2">
+            <div class="col-12 col-md-4">
+              <input type="text" class="form-control form-control-sm" id="newVendorName" placeholder="Vendor Name">
+            </div>
+            <div class="col-12 col-md-4">
+              <input type="text" class="form-control form-control-sm" id="newVendorContact" placeholder="Contact No.">
+            </div>
+            <div class="col-12 col-md-4">
+              <input type="text" class="form-control form-control-sm" id="newVendorAddress" placeholder="Address">
+            </div>
+          </div>
+        </div>
+        <hr>
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label fw-semibold">Product Link</label>
+            <input type="url" class="form-control form-control-sm" id="pvLink" placeholder="https://...">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">Rate (RMB ¥)</label>
+            <input type="number" class="form-control form-control-sm" id="pvRate" step="0.01" placeholder="0.00">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">Ctn Qty</label>
+            <input type="number" class="form-control form-control-sm" id="pvCtnQty" placeholder="0">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">Weight (kg)</label>
+            <input type="number" class="form-control form-control-sm" id="pvWeight" step="0.01" placeholder="0.00">
+          </div>
+        </div>
+        <div class="row g-2 mt-1">
+          <div class="col-4">
+            <label class="form-label">Length (cm)</label>
+            <input type="number" class="form-control form-control-sm" id="pvL" step="0.01" placeholder="L">
+          </div>
+          <div class="col-4">
+            <label class="form-label">Breadth (cm)</label>
+            <input type="number" class="form-control form-control-sm" id="pvB" step="0.01" placeholder="B">
+          </div>
+          <div class="col-4">
+            <label class="form-label">Height (cm)</label>
+            <input type="number" class="form-control form-control-sm" id="pvH" step="0.01" placeholder="H">
+          </div>
+          <div class="col-12">
+            <label class="form-label">CBM (auto-calculated)</label>
+            <input type="text" class="form-control form-control-sm bg-light" id="pvCbm" readonly placeholder="0.0000">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveVendorBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RFQ Modal -->
+<div class="modal fade" id="rfqModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Create RFQ</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">Product</label><input type="text" class="form-control" id="rfqProductName" disabled></div>
+        <div class="mb-3"><label class="form-label">Quantity <span class="text-danger">*</span></label><input type="number" class="form-control" id="rfqQty" min="1" value="1"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-warning fw-bold" id="rfqSubmitBtn">Submit RFQ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const productId = <%= product.id %>;
+
+// Load vendors into select
+async function loadVendors() {
+  const r = await fetch('/vendors/api/list');
+  const vendors = await r.json();
+  const sel = document.getElementById('vendorSelect');
+  vendors.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.id; opt.textContent = `${v.name}${v.contact_no ? ' (' + v.contact_no + ')' : ''}`;
+    sel.appendChild(opt);
+  });
+}
+loadVendors();
+
+// CBM auto-calc
+initCbmCalc(document.getElementById('pvL'), document.getElementById('pvB'), document.getElementById('pvH'), document.getElementById('pvCbm'));
+
+// Save vendor link
+document.getElementById('saveVendorBtn').addEventListener('click', async () => {
+  const vendorId = document.getElementById('vendorSelect').value;
+  const newName = document.getElementById('newVendorName').value.trim();
+  if (!vendorId && !newName) { showToast('Select or create a vendor first', 'warning'); return; }
+
+  const body = {
+    vendor_id: vendorId || null,
+    new_vendor_name: newName || null,
+    new_vendor_contact: document.getElementById('newVendorContact').value,
+    new_vendor_address: document.getElementById('newVendorAddress').value,
+    product_link: document.getElementById('pvLink').value,
+    rate_rmb: document.getElementById('pvRate').value,
+    ctn_l: document.getElementById('pvL').value,
+    ctn_b: document.getElementById('pvB').value,
+    ctn_h: document.getElementById('pvH').value,
+    ctn_qty: document.getElementById('pvCtnQty').value,
+    ctn_weight: document.getElementById('pvWeight').value
+  };
+
+  const btn = document.getElementById('saveVendorBtn');
+  btn.disabled = true;
+  try {
+    const res = await apiCall(`/products/${productId}/vendors`, 'POST', body);
+    if (res.success) {
+      showToast('Vendor linked successfully!');
+      setTimeout(() => location.reload(), 800);
+    } else { showToast(res.message || 'Failed to save', 'error'); }
+  } catch { showToast('Network error', 'error'); }
+  finally { btn.disabled = false; }
+});
+
+async function removeVendor(pvId) {
+  if (!confirm('Remove this vendor from product?')) return;
+  try {
+    const res = await fetch(`/products/vendors/${pvId}`, { method: 'DELETE' });
+    const d = await res.json();
+    if (d.success) { showToast('Vendor removed'); document.querySelector(`tr[data-pvid="${pvId}"]`)?.remove(); }
+    else showToast(d.message, 'error');
+  } catch { showToast('Network error', 'error'); }
+}
+
+// RFQ
+let rfqProductId = null;
+function createRfq(id, name, sku) {
+  rfqProductId = id;
+  document.getElementById('rfqProductName').value = `[${sku}] ${name}`;
+  new bootstrap.Modal(document.getElementById('rfqModal')).show();
+}
+document.getElementById('rfqSubmitBtn').addEventListener('click', async () => {
+  const qty = parseInt(document.getElementById('rfqQty').value);
+  if (!qty || qty < 1) { showToast('Enter valid quantity', 'warning'); return; }
+  const res = await apiCall('/orders/rfq', 'POST', { product_id: rfqProductId, qty });
+  if (res.success) {
+    bootstrap.Modal.getInstance(document.getElementById('rfqModal')).hide();
+    showToast('RFQ submitted!');
+  } else { showToast(res.message, 'error'); }
+});
+</script>
+<%- include('../partials/footer') %>

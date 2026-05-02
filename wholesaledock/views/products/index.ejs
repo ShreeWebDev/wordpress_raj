@@ -1,0 +1,201 @@
+<%- include('../partials/header') %>
+<div class="container-fluid">
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+      <div class="page-title">Products</div>
+      <div class="page-subtitle"><%= products.length %> products found</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+      <% if (user.role !== 'sales') { %>
+      <a href="/products/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Product</a>
+      <% } %>
+      <button class="btn btn-outline-secondary btn-sm" id="toggleView" title="Toggle view">
+        <i class="bi bi-list" id="viewIcon"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Filter -->
+  <form method="GET" action="/products" class="row g-2 mb-4">
+    <div class="col-12 col-md-5">
+      <input type="text" name="search" class="form-control form-control-sm" placeholder="Search by name or SKU..." value="<%= search %>">
+    </div>
+    <div class="col-auto">
+      <div class="form-check mt-1">
+        <input class="form-check-input" type="checkbox" name="show_inactive" id="showInactive" value="1" <%= show_inactive ? 'checked' : '' %> onchange="this.form.submit()">
+        <label class="form-check-label small" for="showInactive">Show inactive</label>
+      </div>
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-primary btn-sm">Search</button>
+      <a href="/products" class="btn btn-outline-secondary btn-sm ms-1">Clear</a>
+    </div>
+  </form>
+
+  <!-- Card View -->
+  <div id="cardView">
+    <div class="row g-3">
+      <% if (products.length === 0) { %>
+      <div class="col-12 text-center text-muted py-5">
+        <i class="bi bi-box fs-1 d-block mb-2"></i>No products found.
+        <% if (user.role !== 'sales') { %><br><a href="/products/create">Add your first product</a><% } %>
+      </div>
+      <% } %>
+      <% products.forEach(p => { %>
+      <div class="col-6 col-md-4 col-lg-3 col-xl-2">
+        <div class="product-card <%= !p.is_active ? 'opacity-50' : '' %>">
+          <div class="product-img">
+            <% if (p.image_path) { %>
+            <img src="<%= p.image_path %>" alt="<%= p.name %>">
+            <% } else { %>
+            <div class="w-100 h-100 d-flex align-items-center justify-content-center bg-light">
+              <i class="bi bi-image text-muted" style="font-size:36px;"></i>
+            </div>
+            <% } %>
+          </div>
+          <div class="card-body">
+            <span class="sku-badge"><%= p.sku %></span>
+            <div class="product-name"><%= p.name %></div>
+            <% if (p.lowest_price) { %>
+            <div class="price-tag">¥<%= parseFloat(p.lowest_price).toFixed(2) %></div>
+            <% } %>
+            <% if (p.current_status) { %>
+            <span class="status-pill status-<%= p.current_status %> d-inline-block mt-1">
+              <%= p.current_status.replace('_',' ').toUpperCase() %>
+            </span>
+            <% } %>
+            <div class="d-flex gap-1 mt-2">
+              <a href="/products/<%= p.id %>" class="btn btn-outline-primary btn-sm flex-grow-1" style="font-size:11px;">View</a>
+              <button class="btn btn-warning btn-sm flex-grow-1" style="font-size:11px;" onclick="createRfq(<%= p.id %>, '<%= p.name.replace(/'/g, "\\'") %>','<%= p.sku %>')">RFQ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+
+  <!-- List View (hidden by default) -->
+  <div id="listView" style="display:none;">
+    <div class="table-container">
+      <table class="table data-table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Image</th>
+            <th>SKU</th>
+            <th>Product Name</th>
+            <th>Lowest Price</th>
+            <th>Status</th>
+            <th>Active</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% products.forEach(p => { %>
+          <tr>
+            <td>
+              <% if (p.image_path) { %>
+              <img src="<%= p.image_path %>" class="img-thumb" alt="">
+              <% } else { %>
+              <div class="img-thumb d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted"></i></div>
+              <% } %>
+            </td>
+            <td><span class="sku-badge"><%= p.sku %></span></td>
+            <td class="fw-semibold"><%= p.name %></td>
+            <td><%= p.lowest_price ? '¥' + parseFloat(p.lowest_price).toFixed(2) : '—' %></td>
+            <td>
+              <% if (p.current_status) { %>
+              <span class="status-pill status-<%= p.current_status %>"><%= p.current_status.replace('_',' ').toUpperCase() %></span>
+              <% } else { %>—<% } %>
+            </td>
+            <td>
+              <span class="badge <%= p.is_active ? 'bg-success' : 'bg-secondary' %>">
+                <%= p.is_active ? 'Active' : 'Inactive' %>
+              </span>
+            </td>
+            <td>
+              <a href="/products/<%= p.id %>" class="btn btn-outline-primary btn-sm me-1">View</a>
+              <button class="btn btn-warning btn-sm" onclick="createRfq(<%= p.id %>, '<%= p.name.replace(/'/g, "\\'") %>','<%= p.sku %>')">RFQ</button>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- RFQ Modal -->
+<div class="modal fade" id="rfqModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-question-circle me-2"></i>Create RFQ</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Product</label>
+          <input type="text" class="form-control" id="rfqProductName" disabled>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Quantity to Order <span class="text-danger">*</span></label>
+          <input type="number" class="form-control" id="rfqQty" min="1" value="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-warning fw-bold" id="rfqSubmitBtn">Submit RFQ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Toggle card/list view
+const cardView = document.getElementById('cardView');
+const listView = document.getElementById('listView');
+const viewIcon = document.getElementById('viewIcon');
+let isCardView = localStorage.getItem('productsView') !== 'list';
+function applyView() {
+  if (isCardView) {
+    cardView.style.display = ''; listView.style.display = 'none';
+    viewIcon.className = 'bi bi-list';
+  } else {
+    cardView.style.display = 'none'; listView.style.display = '';
+    viewIcon.className = 'bi bi-grid';
+  }
+}
+applyView();
+document.getElementById('toggleView').addEventListener('click', () => {
+  isCardView = !isCardView;
+  localStorage.setItem('productsView', isCardView ? 'card' : 'list');
+  applyView();
+});
+
+// RFQ Modal
+let rfqProductId = null;
+function createRfq(id, name, sku) {
+  rfqProductId = id;
+  document.getElementById('rfqProductName').value = `[${sku}] ${name}`;
+  document.getElementById('rfqQty').value = 1;
+  new bootstrap.Modal(document.getElementById('rfqModal')).show();
+}
+document.getElementById('rfqSubmitBtn').addEventListener('click', async () => {
+  const qty = parseInt(document.getElementById('rfqQty').value);
+  if (!qty || qty < 1) { showToast('Please enter a valid quantity', 'warning'); return; }
+  const btn = document.getElementById('rfqSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  try {
+    const res = await apiCall('/orders/rfq', 'POST', { product_id: rfqProductId, qty });
+    if (res.success) {
+      bootstrap.Modal.getInstance(document.getElementById('rfqModal')).hide();
+      showToast('RFQ submitted successfully!');
+    } else { showToast(res.message || 'Failed to submit RFQ', 'error'); }
+  } catch { showToast('Network error', 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Submit RFQ'; }
+});
+</script>
+<%- include('../partials/footer') %>

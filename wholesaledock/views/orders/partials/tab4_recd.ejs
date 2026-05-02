@@ -1,0 +1,172 @@
+<%
+const isSales = user.role === 'sales';
+const isAdminOrAgent = ['admin','agent'].includes(user.role);
+%>
+<% if (isAdminOrAgent && orders.length > 0) { %>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleAll(this)">
+    <label class="form-check-label fw-semibold" for="selectAll">Select All</label>
+  </div>
+  <button class="btn btn-primary" onclick="openLoadModal()">
+    <i class="bi bi-ship me-1"></i>LOADED (Selected)
+  </button>
+</div>
+<% } %>
+
+<div class="table-container">
+  <table class="table data-table table-hover mb-0" style="min-width:900px;">
+    <thead><tr>
+      <% if (isAdminOrAgent) { %><th></th><% } %>
+      <th>Image</th>
+      <th>SKU</th>
+      <th>Product</th>
+      <th>Qty</th>
+      <th>Agent</th>
+      <% if (!isSales) { %>
+      <th>Vendor</th>
+      <th>Contact</th>
+      <th>Rate ¥</th>
+      <th>Ctn Qty</th>
+      <th>L×B×H</th>
+      <th>CBM</th>
+      <th>Weight</th>
+      <th>Comments</th>
+      <% } %>
+    </tr></thead>
+    <tbody>
+      <% if (!orders.length) { %><tr><td colspan="14" class="text-center text-muted py-4">No orders received in China warehouse.</td></tr><% } %>
+      <% orders.forEach(o => {
+        const d = o.detail || {};
+      %>
+      <tr id="order-row-<%= o.id %>">
+        <% if (isAdminOrAgent) { %>
+        <td><input type="checkbox" class="form-check-input order-checkbox" value="<%= o.id %>" data-order='<%= JSON.stringify({id:o.id, sku:o.product?.sku||"", name:o.product?.name||"", qty:o.qty, ctn_qty:d.ctn_qty, ctn_cbm:d.ctn_cbm, ctn_weight:d.ctn_weight}) %>'></td>
+        <% } %>
+        <td><% if (o.product?.image_path) { %><img src="<%= o.product.image_path %>" class="img-thumb"><% } else { %><div class="img-thumb d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted"></i></div><% } %></td>
+        <td><span class="sku-badge"><%= o.product?.sku %></span></td>
+        <td class="fw-semibold"><%= o.product?.name %></td>
+        <td><%= o.qty %></td>
+        <td><%= o.agent?.name || '—' %></td>
+        <% if (!isSales) { %>
+        <td><%= d.vendor?.name || '—' %></td>
+        <td class="small"><%= d.vendor?.contact_no || '—' %></td>
+        <td>¥<%= d.rate_rmb || '—' %></td>
+        <td><%= d.ctn_qty || '—' %></td>
+        <td class="small"><%= d.ctn_l || '—' %>×<%= d.ctn_b || '—' %>×<%= d.ctn_h || '—' %></td>
+        <td><%= d.ctn_cbm ? parseFloat(d.ctn_cbm).toFixed(4) : '—' %></td>
+        <td><%= d.ctn_weight || '—' %> kg</td>
+        <td>
+          <button class="btn btn-outline-secondary btn-sm" onclick="openComments(<%= o.id %>)">
+            <i class="bi bi-chat-dots"></i>
+            <% const cmtCount = (d.comments||[]).length; if(cmtCount > 0) { %> <span class="badge bg-primary"><%= cmtCount %></span><% } %>
+          </button>
+        </td>
+        <% } %>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<!-- Load Modal -->
+<div class="modal fade" id="loadModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-ship me-2"></i>Load to Container</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-semibold">Container No. <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="containerNo" placeholder="e.g. MSCU1234567">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-semibold">ETD</label>
+            <input type="date" class="form-control" id="etdDate">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-semibold">ETA</label>
+            <input type="date" class="form-control" id="etaDate">
+          </div>
+        </div>
+        <h6 class="fw-bold mb-2">Selected Items</h6>
+        <div class="table-container">
+          <table class="table table-sm data-table mb-0" id="loadSummaryTable">
+            <thead><tr><th>SKU</th><th>Product</th><th>No. of Ctns</th><th>Ctn Qty</th><th>Total Qty</th><th>Ctn CBM</th><th>Total CBM</th><th>Ctn Weight</th><th>Total Weight</th></tr></thead>
+            <tbody id="loadSummaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary fw-bold" id="confirmLoadBtn"><i class="bi bi-ship me-1"></i>Confirm Load</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleAll(cb) {
+  document.querySelectorAll('.order-checkbox').forEach(c => c.checked = cb.checked);
+}
+
+function openLoadModal() {
+  const checked = [...document.querySelectorAll('.order-checkbox:checked')];
+  if (!checked.length) { showToast('Select at least one order', 'warning'); return; }
+  const tbody = document.getElementById('loadSummaryBody');
+  tbody.innerHTML = '';
+  checked.forEach(cb => {
+    const item = JSON.parse(cb.dataset.order);
+    tbody.innerHTML += `
+      <tr data-order-id="${item.id}">
+        <td><span class="sku-badge">${item.sku}</span></td>
+        <td>${item.name}</td>
+        <td><input type="number" class="form-control form-control-sm no-of-ctns" style="width:70px;" min="1" placeholder="0"></td>
+        <td>${item.ctn_qty || '—'}</td>
+        <td><input type="number" class="form-control form-control-sm total-qty" style="width:80px;" value="${item.qty}"></td>
+        <td>${item.ctn_cbm ? parseFloat(item.ctn_cbm).toFixed(4) : '—'}</td>
+        <td><input type="number" class="form-control form-control-sm total-cbm" style="width:90px;" step="0.0001" placeholder="0.0000"></td>
+        <td>${item.ctn_weight || '—'} kg</td>
+        <td><input type="number" class="form-control form-control-sm total-weight" style="width:90px;" step="0.01" placeholder="0.00"></td>
+      </tr>`;
+  });
+  new bootstrap.Modal(document.getElementById('loadModal')).show();
+}
+
+document.getElementById('confirmLoadBtn')?.addEventListener('click', async () => {
+  const containerNo = document.getElementById('containerNo').value.trim();
+  if (!containerNo) { showToast('Container number required', 'warning'); return; }
+
+  const rows = document.querySelectorAll('#loadSummaryBody tr');
+  const orderIds = [], itemsData = [];
+  rows.forEach(row => {
+    const id = row.dataset.orderId;
+    orderIds.push(id);
+    itemsData.push({
+      order_id: id,
+      no_of_ctns: row.querySelector('.no-of-ctns')?.value || null,
+      total_qty: row.querySelector('.total-qty')?.value || null,
+      total_cbm: row.querySelector('.total-cbm')?.value || null,
+      total_weight: row.querySelector('.total-weight')?.value || null
+    });
+  });
+
+  const btn = document.getElementById('confirmLoadBtn');
+  btn.disabled = true; btn.textContent = 'Loading...';
+  try {
+    const res = await apiCall('/orders/load', 'POST', {
+      order_ids: orderIds,
+      container_no: containerNo,
+      etd: document.getElementById('etdDate').value,
+      eta: document.getElementById('etaDate').value,
+      items_data: itemsData
+    });
+    if (res.success) {
+      bootstrap.Modal.getInstance(document.getElementById('loadModal')).hide();
+      showToast('Container loaded successfully!');
+      setTimeout(() => window.location.href = '?tab=5', 800);
+    } else showToast(res.message, 'error');
+  } catch { showToast('Network error', 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-ship me-1"></i>Confirm Load'; }
+});
+</script>

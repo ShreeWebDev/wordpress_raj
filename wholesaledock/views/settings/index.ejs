@@ -1,0 +1,140 @@
+<%- include('../partials/header') %>
+<div class="container-fluid">
+  <div class="page-title">Settings</div>
+  <div class="page-subtitle">Manage users and system configuration</div>
+
+  <% if (error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
+  <% if (success) { %><div class="alert alert-success py-2"><%= success %></div><% } %>
+
+  <div class="row g-3">
+    <!-- Add User Form -->
+    <div class="col-12 col-lg-4">
+      <div class="form-card">
+        <h6 class="fw-bold mb-3"><i class="bi bi-person-plus me-2 text-primary"></i>Add New User</h6>
+        <form action="/settings/users" method="POST">
+          <div class="mb-3">
+            <label class="form-label">Full Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Username (Contact No.) <span class="text-danger">*</span></label>
+            <input type="text" name="contact_no" class="form-control" required autocomplete="off">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password <span class="text-danger">*</span></label>
+            <input type="password" name="password" class="form-control" required autocomplete="new-password">
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Role <span class="text-danger">*</span></label>
+            <select name="role" class="form-select" required>
+              <option value="">-- Select Role --</option>
+              <option value="admin">Admin</option>
+              <option value="agent">Agent</option>
+              <option value="sales">Sales</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Create User</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- User List -->
+    <div class="col-12 col-lg-8">
+      <div class="form-card">
+        <h6 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>All Users (<%= users.length %>)</h6>
+        <div class="table-container">
+          <table class="table data-table table-hover mb-0">
+            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              <% users.forEach(u => { %>
+              <tr id="user-row-<%= u.id %>">
+                <td class="fw-semibold"><%= u.name %></td>
+                <td><code><%= u.contact_no %></code></td>
+                <td><span class="badge <%= u.role === 'admin' ? 'bg-danger' : u.role === 'agent' ? 'bg-primary' : 'bg-secondary' %>"><%= u.role %></span></td>
+                <td><span class="badge <%= u.is_active ? 'bg-success' : 'bg-danger' %>"><%= u.is_active ? 'Active' : 'Inactive' %></span></td>
+                <td>
+                  <button class="btn btn-outline-primary btn-sm me-1" onclick="openEditUser(<%= JSON.stringify(u) %>)"><i class="bi bi-pencil"></i></button>
+                  <% if (u.id !== user.id) { %>
+                  <button class="btn btn-outline-danger btn-sm" onclick="deactivateUser(<%= u.id %>)"><i class="bi bi-person-x"></i></button>
+                  <% } %>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Edit User</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="editUserId">
+        <div class="mb-3"><label class="form-label">Full Name</label><input type="text" class="form-control" id="editName"></div>
+        <div class="mb-3"><label class="form-label">Username</label><input type="text" class="form-control" id="editContactNo"></div>
+        <div class="mb-3"><label class="form-label">New Password <small class="text-muted">(leave blank to keep)</small></label><input type="password" class="form-control" id="editPassword" autocomplete="new-password"></div>
+        <div class="mb-3">
+          <label class="form-label">Role</label>
+          <select class="form-select" id="editRole">
+            <option value="admin">Admin</option>
+            <option value="agent">Agent</option>
+            <option value="sales">Sales</option>
+          </select>
+        </div>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="editIsActive">
+          <label class="form-check-label" for="editIsActive">Active</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" id="saveEditUserBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function openEditUser(u) {
+  document.getElementById('editUserId').value = u.id;
+  document.getElementById('editName').value = u.name;
+  document.getElementById('editContactNo').value = u.contact_no;
+  document.getElementById('editPassword').value = '';
+  document.getElementById('editRole').value = u.role;
+  document.getElementById('editIsActive').checked = u.is_active;
+  new bootstrap.Modal(document.getElementById('editUserModal')).show();
+}
+
+document.getElementById('saveEditUserBtn').addEventListener('click', async () => {
+  const id = document.getElementById('editUserId').value;
+  const data = {
+    name: document.getElementById('editName').value,
+    contact_no: document.getElementById('editContactNo').value,
+    role: document.getElementById('editRole').value,
+    is_active: document.getElementById('editIsActive').checked
+  };
+  const pwd = document.getElementById('editPassword').value;
+  if (pwd) data.password = pwd;
+
+  const res = await apiCall(`/settings/users/${id}`, 'PUT', data);
+  if (res.success) {
+    bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
+    showToast('User updated!');
+    setTimeout(() => location.reload(), 800);
+  } else showToast(res.message, 'error');
+});
+
+async function deactivateUser(id) {
+  if (!confirm('Deactivate this user?')) return;
+  const res = await fetch(`/settings/users/${id}`, { method: 'DELETE' });
+  const d = await res.json();
+  if (d.success) { showToast('User deactivated'); setTimeout(() => location.reload(), 800); }
+  else showToast(d.message, 'error');
+}
+</script>
+<%- include('../partials/footer') %>

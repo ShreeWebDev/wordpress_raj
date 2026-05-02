@@ -1,0 +1,158 @@
+<%
+const isSales = user.role === 'sales';
+const isAdminOrAgent = ['admin','agent'].includes(user.role);
+const tabLabel = tab === 2 ? 'to_order' : 'ordered';
+const nextLabel = tab === 2 ? 'Ordered' : 'Recd China W/H';
+%>
+<div class="table-container">
+  <table class="table data-table table-hover mb-0" style="min-width:1100px;">
+    <thead><tr>
+      <th>Image</th>
+      <th>SKU</th>
+      <th>Product</th>
+      <th>Qty</th>
+      <th>Agent</th>
+      <% if (!isSales) { %>
+      <th>Vendor</th>
+      <th>Contact</th>
+      <th>Link</th>
+      <th>Rate ¥</th>
+      <th>Ctn Qty</th>
+      <th>L×B×H (cm)</th>
+      <th>CBM</th>
+      <th>Weight</th>
+      <th>Comments</th>
+      <th>Attachments</th>
+      <% } %>
+      <% if (isAdminOrAgent) { %><th>Action</th><% } %>
+    </tr></thead>
+    <tbody>
+      <% if (!orders.length) { %><tr><td colspan="16" class="text-center text-muted py-4">No orders in this stage.</td></tr><% } %>
+      <% orders.forEach(o => {
+        const d = o.detail || {};
+        const unread = false; // simplified
+      %>
+      <tr id="order-row-<%= o.id %>">
+        <td><% if (o.product?.image_path) { %><img src="<%= o.product.image_path %>" class="img-thumb"><% } else { %><div class="img-thumb d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted"></i></div><% } %></td>
+        <td><span class="sku-badge"><%= o.product?.sku %></span></td>
+        <td><a href="/products/<%= o.product?.id %>" class="fw-semibold text-decoration-none text-dark"><%= o.product?.name %></a></td>
+        <td>
+          <% if (isAdminOrAgent) { %>
+          <input type="number" class="form-control form-control-sm qty-input" style="width:70px;" value="<%= o.qty %>" min="1" data-order-id="<%= o.id %>" onblur="saveOrderField('<%= o.id %>','qty',this.value)">
+          <% } else { %><%= o.qty %><% } %>
+        </td>
+        <td><%= o.agent?.name || '—' %></td>
+        <% if (!isSales) { %>
+        <td>
+          <% if (isAdminOrAgent) { %>
+          <select class="form-select form-select-sm vendor-select" style="min-width:120px;" data-order-id="<%= o.id %>" onchange="saveOrderField('<%= o.id %>','vendor_id',this.value)">
+            <option value="">-- Vendor --</option>
+            <% vendors.forEach(v => { %><option value="<%= v.id %>" <%= d.vendor_id == v.id ? 'selected' : '' %>><%= v.name %></option><% }) %>
+          </select>
+          <% } else { %><%= d.vendor?.name || '—' %><% } %>
+        </td>
+        <td class="small"><%= d.vendor?.contact_no || '—' %></td>
+        <td>
+          <% if (isAdminOrAgent) { %>
+          <input type="url" class="form-control form-control-sm" style="min-width:100px;" placeholder="URL" value="<%= d.product_link || '' %>" onblur="saveOrderField('<%= o.id %>','product_link',this.value)">
+          <% } else { %><% if(d.product_link){ %><a href="<%= d.product_link %>" target="_blank"><i class="bi bi-link-45deg"></i></a><% } else { %>—<% } %><% } %>
+        </td>
+        <td>
+          <% if (isAdminOrAgent) { %>
+          <input type="number" class="form-control form-control-sm" style="width:80px;" step="0.01" value="<%= d.rate_rmb || '' %>" placeholder="0.00" onblur="saveOrderField('<%= o.id %>','rate_rmb',this.value)">
+          <% } else { %>¥<%= d.rate_rmb || '—' %><% } %>
+        </td>
+        <td>
+          <% if (isAdminOrAgent) { %>
+          <input type="number" class="form-control form-control-sm" style="width:70px;" value="<%= d.ctn_qty || '' %>" placeholder="0" onblur="saveOrderField('<%= o.id %>','ctn_qty',this.value)">
+          <% } else { %><%= d.ctn_qty || '—' %><% } %>
+        </td>
+        <td>
+          <% if (isAdminOrAgent) { %>
+          <div class="d-flex gap-1" style="min-width:180px;">
+            <input type="number" class="form-control form-control-sm dim-l" step="0.1" value="<%= d.ctn_l || '' %>" placeholder="L" style="width:55px;" data-order-id="<%= o.id %>">
+            <input type="number" class="form-control form-control-sm dim-b" step="0.1" value="<%= d.ctn_b || '' %>" placeholder="B" style="width:55px;" data-order-id="<%= o.id %>">
+            <input type="number" class="form-control form-control-sm dim-h" step="0.1" value="<%= d.ctn_h || '' %>" placeholder="H" style="width:55px;" data-order-id="<%= o.id %>">
+          </div>
+          <% } else { %><%= d.ctn_l || '—' %>×<%= d.ctn_b || '—' %>×<%= d.ctn_h || '—' %><% } %>
+        </td>
+        <td>
+          <input type="text" class="form-control form-control-sm bg-light cbm-display" style="width:80px;" readonly value="<%= d.ctn_cbm ? parseFloat(d.ctn_cbm).toFixed(4) : '' %>" data-order-id="<%= o.id %>">
+        </td>
+        <td>
+          <% if (isAdminOrAgent) { %>
+          <input type="number" class="form-control form-control-sm" style="width:75px;" step="0.01" value="<%= d.ctn_weight || '' %>" placeholder="kg" onblur="saveOrderField('<%= o.id %>','ctn_weight',this.value)">
+          <% } else { %><%= d.ctn_weight || '—' %><% } %>
+        </td>
+        <td>
+          <button class="btn btn-outline-secondary btn-sm position-relative" onclick="openComments(<%= o.id %>)">
+            <i class="bi bi-chat-dots"></i>
+            <% const cmtCount = (d.comments||[]).length; if(cmtCount > 0) { %><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary" style="font-size:9px;"><%= cmtCount %></span><% } %>
+          </button>
+        </td>
+        <td>
+          <button class="btn btn-outline-secondary btn-sm" onclick="openAttachments(<%= o.id %>)">
+            <i class="bi bi-paperclip"></i>
+            <% const attCount = (d.attachments||[]).length; if(attCount > 0) { %> <span class="badge bg-secondary"><%= attCount %></span><% } %>
+          </button>
+        </td>
+        <% } %>
+        <% if (isAdminOrAgent) { %>
+        <td>
+          <button class="btn btn-success btn-sm" onclick="advanceOrder(<%= o.id %>, '<%= nextLabel %>')">
+            <%= nextLabel %>
+          </button>
+        </td>
+        <% } %>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<!-- CBM auto-calc for dim inputs -->
+<script>
+document.querySelectorAll('.dim-l, .dim-b, .dim-h').forEach(inp => {
+  inp.addEventListener('input', function() {
+    const id = this.dataset.orderId;
+    const row = document.getElementById(`order-row-${id}`);
+    if (!row) return;
+    const l = row.querySelector('.dim-l')?.value;
+    const b = row.querySelector('.dim-b')?.value;
+    const h = row.querySelector('.dim-h')?.value;
+    const cbm = calcCbm(l, b, h);
+    const display = row.querySelector('.cbm-display');
+    if (display) display.value = cbm;
+  });
+  inp.addEventListener('blur', function() {
+    const id = this.dataset.orderId;
+    const row = document.getElementById(`order-row-${id}`);
+    if (!row) return;
+    const l = row.querySelector('.dim-l')?.value;
+    const b = row.querySelector('.dim-b')?.value;
+    const h = row.querySelector('.dim-h')?.value;
+    if (l || b || h) {
+      saveOrderFields(id, { ctn_l: l, ctn_b: b, ctn_h: h });
+    }
+  });
+});
+
+async function saveOrderField(orderId, field, value) {
+  try { await apiCall(`/orders/${orderId}/detail`, 'PUT', { [field]: value }); }
+  catch { showToast('Save failed', 'error'); }
+}
+
+async function saveOrderFields(orderId, fields) {
+  try { await apiCall(`/orders/${orderId}/detail`, 'PUT', fields); }
+  catch { showToast('Save failed', 'error'); }
+}
+
+async function advanceOrder(orderId, label) {
+  if (!confirm(`Move order to "${label}"?`)) return;
+  const res = await apiCall(`/orders/${orderId}/advance`, 'POST');
+  if (res.success) {
+    showToast(`Order moved to ${label}!`);
+    setTimeout(() => location.reload(), 800);
+  } else showToast(res.message || 'Failed', 'error');
+}
+</script>

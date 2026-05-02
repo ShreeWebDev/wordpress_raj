@@ -1,0 +1,10 @@
+# Hostinger Shared Hosting - Node.js via Passenger
+PassengerNodejs /usr/bin/node
+PassengerAppRoot /home/u123456789/domains/yourdomain.com/public_html
+PassengerAppType node
+PassengerStartupFile app.js
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^$ - [L]
+</IfModule>

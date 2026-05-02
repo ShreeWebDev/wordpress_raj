@@ -1,0 +1,136 @@
+<%- include('../partials/header') %>
+<div class="container-fluid">
+  <div class="page-title">Orders</div>
+
+  <!-- Tab Navigation -->
+  <ul class="nav order-tabs mb-0" id="orderTabs">
+    <% if (user.role !== 'agent') { %>
+    <li class="nav-item">
+      <a class="nav-link <%= activeTab === '1' ? 'active' : '' %>" href="?tab=1">
+        RFQ <% if (rfqOrders.length) { %><span class="badge bg-warning text-dark ms-1"><%= rfqOrders.length %></span><% } %>
+      </a>
+    </li>
+    <% } %>
+    <li class="nav-item"><a class="nav-link <%= activeTab === '2' ? 'active' : '' %>" href="?tab=2">To Order <% if (toOrderOrders.length) { %><span class="badge bg-primary ms-1"><%= toOrderOrders.length %></span><% } %></a></li>
+    <li class="nav-item"><a class="nav-link <%= activeTab === '3' ? 'active' : '' %>" href="?tab=3">To Receive <% if (orderedOrders.length) { %><span class="badge bg-primary ms-1"><%= orderedOrders.length %></span><% } %></a></li>
+    <li class="nav-item"><a class="nav-link <%= activeTab === '4' ? 'active' : '' %>" href="?tab=4">Recd China W/H <% if (recdChinaOrders.length) { %><span class="badge bg-success ms-1"><%= recdChinaOrders.length %></span><% } %></a></li>
+    <li class="nav-item"><a class="nav-link <%= activeTab === '5' ? 'active' : '' %>" href="?tab=5">Loaded</a></li>
+    <li class="nav-item"><a class="nav-link <%= activeTab === '6' ? 'active' : '' %>" href="?tab=6">Closed</a></li>
+  </ul>
+
+  <div class="order-tab-content">
+
+    <!-- TAB 1: RFQ -->
+    <% if (activeTab === '1' && user.role !== 'agent') { %>
+    <div class="table-container">
+      <table class="table data-table table-hover mb-0">
+        <thead><tr>
+          <th>Image</th><th>SKU</th><th>Product</th><th>Qty</th><th>Created By</th>
+          <% if (user.role === 'admin') { %><th>Action</th><% } %>
+        </tr></thead>
+        <tbody>
+          <% if (!rfqOrders.length) { %><tr><td colspan="6" class="text-center text-muted py-4">No RFQs pending.</td></tr><% } %>
+          <% rfqOrders.forEach(o => { %>
+          <tr id="rfq-row-<%= o.id %>">
+            <td><% if (o.product?.image_path) { %><img src="<%= o.product.image_path %>" class="img-thumb"><% } else { %><div class="img-thumb d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted"></i></div><% } %></td>
+            <td><span class="sku-badge"><%= o.product?.sku %></span></td>
+            <td><a href="/products/<%= o.product?.id %>" target="_blank" class="fw-semibold text-decoration-none"><%= o.product?.name %></a></td>
+            <td><strong><%= o.qty %></strong></td>
+            <td><%= o.creator?.name || '—' %></td>
+            <% if (user.role === 'admin') { %>
+            <td>
+              <button class="btn btn-success btn-sm me-1" onclick="openConfirmRfq(<%= o.id %>, <%= o.qty %>)">Confirm</button>
+              <button class="btn btn-outline-danger btn-sm" onclick="cancelRfq(<%= o.id %>)">Cancel</button>
+            </td>
+            <% } %>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+
+    <!-- TAB 2: TO ORDER -->
+    <% if (activeTab === '2') { %>
+    <%- include('partials/order_tab', { orders: toOrderOrders, tab: 2, user, agents, vendors }) %>
+    <% } %>
+
+    <!-- TAB 3: TO RECEIVE (ORDERED) -->
+    <% if (activeTab === '3') { %>
+    <%- include('partials/order_tab', { orders: orderedOrders, tab: 3, user, agents, vendors }) %>
+    <% } %>
+
+    <!-- TAB 4: RECD CHINA W/H -->
+    <% if (activeTab === '4') { %>
+    <%- include('partials/tab4_recd', { orders: recdChinaOrders, user }) %>
+    <% } %>
+
+    <!-- TAB 5: LOADED SHIPMENTS -->
+    <% if (activeTab === '5') { %>
+    <%- include('partials/shipment_tab', { shipments: loadedShipments, tabStatus: 'loaded', user }) %>
+    <% } %>
+
+    <!-- TAB 6: CLOSED SHIPMENTS -->
+    <% if (activeTab === '6') { %>
+    <%- include('partials/shipment_tab', { shipments: closedShipments, tabStatus: 'closed', user }) %>
+    <% } %>
+
+  </div>
+</div>
+
+<!-- Confirm RFQ Modal -->
+<div class="modal fade" id="confirmRfqModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Confirm RFQ</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Assign Agent <span class="text-danger">*</span></label>
+          <select class="form-select" id="confirmAgentId">
+            <option value="">-- Select Agent --</option>
+            <% agents.forEach(a => { %><option value="<%= a.id %>"><%= a.name %></option><% }) %>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Quantity</label>
+          <input type="number" class="form-control" id="confirmQty" min="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success" id="confirmRfqSubmit">Confirm Order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentRfqId = null;
+
+function openConfirmRfq(id, qty) {
+  currentRfqId = id;
+  document.getElementById('confirmQty').value = qty;
+  new bootstrap.Modal(document.getElementById('confirmRfqModal')).show();
+}
+
+document.getElementById('confirmRfqSubmit')?.addEventListener('click', async () => {
+  const agentId = document.getElementById('confirmAgentId').value;
+  const qty = document.getElementById('confirmQty').value;
+  if (!agentId) { showToast('Please select an agent', 'warning'); return; }
+  const res = await apiCall(`/orders/${currentRfqId}/confirm-rfq`, 'POST', { agent_id: agentId, qty });
+  if (res.success) {
+    bootstrap.Modal.getInstance(document.getElementById('confirmRfqModal')).hide();
+    showToast('RFQ confirmed!');
+    setTimeout(() => window.location.href = '?tab=2', 800);
+  } else showToast(res.message, 'error');
+});
+
+async function cancelRfq(id) {
+  if (!confirm('Cancel this RFQ?')) return;
+  const res = await fetch(`/orders/${id}/cancel-rfq`, { method: 'DELETE' });
+  const d = await res.json();
+  if (d.success) { document.getElementById(`rfq-row-${id}`)?.remove(); showToast('RFQ cancelled'); }
+  else showToast(d.message, 'error');
+}
+</script>
+<%- include('../partials/footer') %>

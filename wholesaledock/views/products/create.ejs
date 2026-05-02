@@ -1,0 +1,29 @@
+<%- include('../partials/header') %>
+<div class="container-fluid">
+  <a href="/products" class="text-muted small text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  <div class="page-title mt-1">Add Product</div>
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-7 col-lg-5">
+      <div class="form-card">
+        <% if (error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
+        <form action="/products/create" method="POST" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label class="form-label">Product Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" required placeholder="Enter product name">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">SKU <span class="text-danger">*</span></label>
+            <input type="text" name="sku" class="form-control" required placeholder="e.g. PRD-001" style="text-transform:uppercase;">
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Product Image</label>
+            <input type="file" name="image" class="form-control" accept="image/*">
+            <small class="text-muted">JPG, PNG, GIF or WebP. Max 5MB.</small>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Create Product</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/footer') %>

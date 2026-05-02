@@ -1,0 +1,45 @@
+<%- include('../partials/header') %>
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <div class="page-title">Vendors</div>
+      <div class="page-subtitle"><%= vendors.length %> vendors</div>
+    </div>
+    <a href="/vendors/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Vendor</a>
+  </div>
+  <form method="GET" action="/vendors" class="row g-2 mb-4">
+    <div class="col-12 col-md-5">
+      <input type="text" name="search" class="form-control form-control-sm" placeholder="Search vendor name or contact..." value="<%= search %>">
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-primary btn-sm">Search</button>
+      <a href="/vendors" class="btn btn-outline-secondary btn-sm ms-1">Clear</a>
+    </div>
+  </form>
+
+  <div class="row g-3">
+    <% if (vendors.length === 0) { %>
+    <div class="col-12 text-center text-muted py-5">
+      <i class="bi bi-building fs-1 d-block mb-2"></i>No vendors found. <a href="/vendors/create">Add first vendor</a>
+    </div>
+    <% } %>
+    <% vendors.forEach(v => { %>
+    <div class="col-12 col-md-6 col-lg-4">
+      <div class="form-card p-3 d-flex align-items-center gap-3">
+        <div style="width:44px;height:44px;border-radius:10px;background:#e8f0fe;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="bi bi-building" style="color:#1a3c5e;font-size:20px;"></i>
+        </div>
+        <div class="flex-grow-1 overflow-hidden">
+          <div class="fw-bold text-truncate"><%= v.name %></div>
+          <div class="text-muted small"><%= v.contact_no || 'No contact' %></div>
+        </div>
+        <div class="d-flex gap-1">
+          <a href="/vendors/<%= v.id %>" class="btn btn-outline-primary btn-sm">View</a>
+          <a href="/vendors/<%= v.id %>/edit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i></a>
+        </div>
+      </div>
+    </div>
+    <% }) %>
+  </div>
+</div>
+<%- include('../partials/footer') %>

@@ -1,0 +1,28 @@
+<%- include('../partials/header') %>
+<div class="container-fluid">
+  <a href="/vendors" class="text-muted small text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  <div class="page-title mt-1">Add Vendor</div>
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-6 col-lg-5">
+      <div class="form-card">
+        <% if (error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
+        <form action="/vendors/create" method="POST">
+          <div class="mb-3">
+            <label class="form-label">Vendor Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" required placeholder="Enter vendor name">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Contact Number</label>
+            <input type="text" name="contact_no" class="form-control" placeholder="Phone or WeChat ID">
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Address</label>
+            <textarea name="address" class="form-control" rows="3" placeholder="Vendor address"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Create Vendor</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/footer') %>
